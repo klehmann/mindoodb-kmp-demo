@@ -102,7 +102,7 @@ private fun TopBar(state: AppState, tenant: OpenTenant, sync: SyncStatus) {
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text("MindooDB", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Chip(tenant.profile.tenantId)
+            Chip(tenant.profile.displayName)
             Text(tenant.profile.userId, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.weight(1f))
             val server = tenant.profile.serverUrl
@@ -116,7 +116,7 @@ private fun TopBar(state: AppState, tenant: OpenTenant, sync: SyncStatus) {
                 style = MaterialTheme.typography.bodySmall,
             )
             if (server != null) {
-                TextButton(onClick = { state.run("Syncing…") { tenant.session.refresh() } }) {
+                TextButton(onClick = { state.run("Syncing…") { tenant.session.refresh(); state.refreshTenantLabel() } }) {
                     Icon(Icons.Outlined.Sync, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text("Sync now")

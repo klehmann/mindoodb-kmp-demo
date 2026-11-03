@@ -44,6 +44,7 @@ fun ServerPanel(state: AppState, tenant: OpenTenant, sync: SyncStatus) {
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp).widthIn(max = 900.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        TenantSection(state, tenant)
         if (profile.serverUrl == null && profile.isAdmin) {
             Section(
                 "Publish to a server",
@@ -88,7 +89,7 @@ fun ServerPanel(state: AppState, tenant: OpenTenant, sync: SyncStatus) {
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(
-                    onClick = { state.run("Syncing…") { lastRefresh = tenant.session.refresh() } },
+                    onClick = { state.run("Syncing…") { lastRefresh = tenant.session.refresh(); state.refreshTenantLabel() } },
                     enabled = profile.serverUrl != null,
                 ) { Text("Sync now") }
             }
@@ -115,6 +116,42 @@ fun ServerPanel(state: AppState, tenant: OpenTenant, sync: SyncStatus) {
                     }
                 }
             }
+        }
+    }
+}
+
+/** Tenant name (editable by the admin, like in Haven) and the generated ID. */
+@Composable
+private fun TenantSection(state: AppState, tenant: OpenTenant) {
+    val profile = tenant.profile
+    var label by remember(profile.tenantLabel) { mutableStateOf(profile.tenantLabel ?: "") }
+    var adminPassword by remember { mutableStateOf("") }
+    Section(
+        "Tenant",
+        Modifier.fillMaxWidth(),
+        subtitle = if (profile.isAdmin) {
+            "The name is stored encrypted in the admin-signed directory; members see a new name after their next sync."
+        } else "Only the tenant admin can rename the tenant.",
+    ) {
+        CopyBox("Tenant ID (generated)", profile.tenantId)
+        if (profile.isAdmin) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Field("Tenant name", label, { label = it }, Modifier.weight(1f))
+                Field("Admin password", adminPassword, { adminPassword = it }, Modifier.weight(1f), password = true)
+            }
+            Button(
+                onClick = {
+                    state.run("Renaming…") {
+                        tenant.session.setTenantLabel(label.trim(), adminPassword)
+                        state.updateProfile { it.copy(tenantLabel = label.trim()) }
+                        adminPassword = ""
+                        state.notice = "Renamed to ${label.trim()}"
+                    }
+                },
+                enabled = label.isNotBlank() && label.trim() != profile.tenantLabel && adminPassword.isNotEmpty(),
+            ) { Text("Rename") }
+        } else {
+            KeyValue("Tenant name", profile.tenantLabel ?: "–")
         }
     }
 }

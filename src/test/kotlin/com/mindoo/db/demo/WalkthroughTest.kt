@@ -50,7 +50,6 @@ class WalkthroughTest {
             println("[walkthrough] skipped: set MINDOODB_TEST_SERVER_URL and build the sidecar")
             return
         }
-        val tenantId = "demo" + System.currentTimeMillis().toString(36)
         val admin = AppState(AppConfig(Files.createTempDirectory("demo-admin"), bridge)).also { states += it }
         val user = AppState(AppConfig(Files.createTempDirectory("demo-user"), bridge)).also { states += it }
         admin.startSidecar()
@@ -62,7 +61,7 @@ class WalkthroughTest {
                 waitFor("sidecars") { admin.sidecar != null && user.sidecar != null }
 
                 // --- Admin: create the tenant ---
-                type("Tenant ID", tenantId)
+                type("Tenant name", "Demo Corp")
                 type("Admin name", "cn=admin/o=demo")
                 type("Admin password", "admin-pass")
                 type("Your user name", "cn=anna/o=demo")
@@ -71,17 +70,26 @@ class WalkthroughTest {
                 shot("01-create-tenant")
                 click("Create tenant")
                 waitFor("tenant open") { admin.open != null && admin.busy == null }
+                assertTrue(Regex("^[0-9a-f]{24}$").matches(admin.open!!.profile.tenantId), "generated tenant ID")
+                assertEquals("Demo Corp", admin.open!!.profile.tenantLabel)
 
                 // --- Admin: publish ---
                 click("Server & sync")
                 waitForText("MindooDB Demo Server 1")   // one-click preset is offered and preselected
-                type("Admin password", "admin-pass")
+                // index 1: the first admin password field belongs to the rename section
+                type("Admin password", "admin-pass", index = 1)
                 shot("02-choose-server")
                 type("Or your own server", serverUrl)
-                type("Admin password", "admin-pass")
                 click("Publish")
                 waitFor("published") { admin.open?.profile?.serverUrl != null && admin.busy == null }
                 shot("02-published")
+
+                // --- Admin: rename the tenant ---
+                type("Tenant name", "Demo Corp Europe")
+                type("Admin password", "admin-pass")
+                click("Rename")
+                waitFor("renamed") { admin.open?.profile?.tenantLabel == "Demo Corp Europe" && admin.busy == null }
+                shot("02b-tenant-renamed")
 
                 // --- Admin: two documents ---
                 click("notes")
@@ -129,6 +137,7 @@ class WalkthroughTest {
                 type("Your password", "ben-pass", index = 0)
                 click("Join tenant")
                 waitFor("joined") { user.open != null && user.busy == null }
+                waitFor("label") { user.open?.profile?.tenantLabel == "Demo Corp Europe" }
                 user.run("sync") { user.open!!.session.refresh() }
                 waitFor("user synced") { user.busy == null }
                 waitForText("Quarterly report")
