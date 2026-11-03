@@ -9,11 +9,13 @@ It is a demo, and a test of the Kotlin API: every screen uses only the public cl
 | ![Create a tenant](docs/screenshots/01-create-tenant.png) | ![Check a join request](docs/screenshots/05-inspect-request.png) |
 | **New user: waiting for the admin** | **New user: the admin's documents** |
 | ![Join request](docs/screenshots/04-join-request.png) | ![Documents](docs/screenshots/07-user-sees-documents.png) |
+| **Admin: publish (demo server preselected)** | **Sync activity** |
+| ![Choose a server](docs/screenshots/02-choose-server.png) | ![Sync](docs/screenshots/09-user-sync.png) |
 
 ## What it does
 
 - **Start:** create a tenant (admin and user keys are generated locally), request access to an existing tenant (shows your join request and your key fingerprint), or open an identity stored on this machine.
-- **Server & sync:** publish the tenant to a MindooDB server, or connect a joined tenant. Sync runs in the background every 5 seconds; "Sync now" syncs right away. The activity list and the progress bar in the title bar come from `session.syncProgress()`.
+- **Server & sync:** publish the tenant to a MindooDB server, or connect a joined tenant. The MindooDB demo server that Haven offers (`https://demo-server1.mindoodb.com`, data is deleted periodically) is preselected, so you can start with one click; any other server URL works too. Sync runs in the background every 5 seconds; "Sync now" syncs right away. The activity list and the progress bar in the title bar come from `session.syncProgress()`.
 - **Join requests (admin):** paste a request, check who asks (name, device label, key fingerprints, whether the person or device is already in the directory), approve, and send the response back.
 - **Documents:** a live list per database (`liveQuery`, follows local changes and sync), filter or full-text search, a JSON editor to create, change and delete documents (changes are merged at the version you edited), attachments (upload, download, remove) and the revision history.
 
@@ -63,7 +65,7 @@ Then run two instances with separate data directories:
 ./gradlew run --args="--data demo-data-ben --title Ben"
 ```
 
-Anna creates a tenant and publishes it to `http://127.0.0.1:1761`. Ben requests access and sends Anna the request. Anna checks it under "Join requests" (the signing key fingerprint is the one Ben's window shows), approves, and sends the response back. Ben pastes it and sees Anna's documents. Haven can take either role: it approves requests from this app, and this app approves requests from Haven.
+Anna creates a tenant and publishes it, to the demo server with one click or to `http://127.0.0.1:1761` under "Or your own server". Ben requests access and sends Anna the request. Anna checks it under "Join requests" (the signing key fingerprint is the one Ben's window shows), approves, and sends the response back. Ben pastes it and sees Anna's documents. Haven can take either role: it approves requests from this app, and this app approves requests from Haven.
 
 ## Test
 

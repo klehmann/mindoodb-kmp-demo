@@ -74,7 +74,10 @@ class WalkthroughTest {
 
                 // --- Admin: publish ---
                 click("Server & sync")
-                type("Server URL", serverUrl)
+                waitForText("MindooDB Demo Server 1")   // one-click preset is offered and preselected
+                type("Admin password", "admin-pass")
+                shot("02-choose-server")
+                type("Or your own server", serverUrl)
                 type("Admin password", "admin-pass")
                 click("Publish")
                 waitFor("published") { admin.open?.profile?.serverUrl != null && admin.busy == null }

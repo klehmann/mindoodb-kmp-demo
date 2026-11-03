@@ -9,7 +9,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -27,13 +30,14 @@ import com.mindoo.db.bridge.JoinRequestInfo
 import com.mindoo.db.bridge.RefreshResult
 import com.mindoo.db.demo.AppState
 import com.mindoo.db.demo.OpenTenant
+import com.mindoo.db.demo.demoServerPresets
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
 
 @Composable
 fun ServerPanel(state: AppState, tenant: OpenTenant, sync: SyncStatus) {
     val profile = tenant.profile
-    var url by remember { mutableStateOf(profile.serverUrl ?: "http://127.0.0.1:1761") }
+    var url by remember { mutableStateOf(profile.serverUrl ?: demoServerPresets.first().url) }
     var adminPassword by remember { mutableStateOf("") }
     var lastRefresh by remember { mutableStateOf<RefreshResult?>(null) }
     Column(
@@ -46,7 +50,7 @@ fun ServerPanel(state: AppState, tenant: OpenTenant, sync: SyncStatus) {
                 Modifier.fillMaxWidth(),
                 subtitle = "Registers the tenant on a MindooDB server and uploads the admin-signed directory. The server only ever stores ciphertext.",
             ) {
-                Field("Server URL", url, { url = it.trim() })
+                ServerChoice(url) { url = it }
                 Field("Admin password", adminPassword, { adminPassword = it }, password = true)
                 Text(
                     "Servers that let any signed user register tenants accept the tenant admin; otherwise a server system admin has to register it.",
@@ -66,7 +70,7 @@ fun ServerPanel(state: AppState, tenant: OpenTenant, sync: SyncStatus) {
             }
         } else if (profile.serverUrl == null) {
             Section("Connect to a server", Modifier.fillMaxWidth()) {
-                Field("Server URL", url, { url = it.trim() })
+                ServerChoice(url) { url = it }
                 Button(onClick = {
                     state.run("Connecting…") {
                         tenant.session.setServerUrl(url)
@@ -112,6 +116,32 @@ fun ServerPanel(state: AppState, tenant: OpenTenant, sync: SyncStatus) {
                 }
             }
         }
+    }
+}
+
+/** One-click presets (the demo server Haven offers) plus a free URL field. */
+@Composable
+private fun ServerChoice(url: String, onUrl: (String) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        demoServerPresets.forEach { preset ->
+            val selected = url.trimEnd('/') == preset.url
+            OutlinedCard(
+                onClick = { onUrl(preset.url) },
+                modifier = Modifier.fillMaxWidth(),
+                border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
+            ) {
+                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    RadioButton(selected = selected, onClick = { onUrl(preset.url) })
+                    Column(Modifier.weight(1f)) {
+                        Text(preset.label, fontWeight = FontWeight.SemiBold)
+                        Text(preset.url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(preset.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Chip("One click")
+                }
+            }
+        }
+        Field("Or your own server", url, { onUrl(it.trim()) }, placeholder = "https://sync.example.com")
     }
 }
 
