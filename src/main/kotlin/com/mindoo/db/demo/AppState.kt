@@ -76,12 +76,16 @@ class AppState(val config: AppConfig) {
         }
     }
 
+    /** The ID is generated (random, time-sortable, like Haven), so tenants never collide on a server. */
     fun createTenant(
-        tenantId: String, adminName: String, adminPassword: String,
+        tenantLabel: String, adminName: String, adminPassword: String,
         userId: String, password: String, databases: List<String>,
-    ) = run("Creating tenant “$tenantId”…") {
-        MindooDBBridge.createTenant(endpoint, tenantId, adminName, adminPassword, userId, password, databases)
-        val profile = Profile(tenantId, userId, databases, isAdmin = true)
+    ) = run("Creating tenant “$tenantLabel”…") {
+        val created = MindooDBBridge.createTenant(
+            endpoint, tenantId = null, adminName = adminName, adminPassword = adminPassword,
+            userId = userId, password = password, databases = databases, tenantLabel = tenantLabel,
+        )
+        val profile = Profile(created.tenantId, userId, databases, isAdmin = true, tenantLabel = created.tenantLabel)
         profiles = store.upsertProfile(profile)
         openSession(profile, password)
     }
@@ -100,7 +104,7 @@ class AppState(val config: AppConfig) {
                 endpoint, kotlinx.serialization.json.JsonPrimitive(joinResponse.trim()),
                 pending.identity, password, databases = databases,
             )
-            val profile = Profile(joined.tenantId, joined.userId, databases, serverUrl = joined.serverUrl)
+            val profile = Profile(joined.tenantId, joined.userId, databases, serverUrl = joined.serverUrl, tenantLabel = joined.tenantLabel)
             store.setPendingJoin(null, pending.userId)
             profiles = store.upsertProfile(profile)
             openSession(profile, password)
@@ -110,13 +114,20 @@ class AppState(val config: AppConfig) {
         profiles = store.setPendingJoin(null, pending.userId)
     }
 
-    fun openProfile(profile: Profile, password: String) = run("Opening ${profile.tenantId}…") {
+    fun openProfile(profile: Profile, password: String) = run("Opening ${profile.displayName}…") {
         openSession(profile, password)
     }
 
     private suspend fun openSession(profile: Profile, password: String) {
         val session = MindooDBBridge.openSession(endpoint, profile.tenantId, profile.userId, password, profile.databases)
         open = OpenTenant(profile, session)
+        refreshTenantLabel()
+    }
+
+    /** Pick up a rename by the admin (after a sync, or right after opening). */
+    suspend fun refreshTenantLabel() {
+        val label = runCatching { open?.session?.getTenantLabel() }.getOrNull() ?: return
+        if (label != open?.profile?.tenantLabel) updateProfile { it.copy(tenantLabel = label) }
     }
 
     /** Remember a newly opened database or server URL for the next start. */

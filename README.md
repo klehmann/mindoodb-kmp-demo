@@ -14,7 +14,8 @@ It is a demo, and a test of the Kotlin API: every screen uses only the public cl
 
 ## What it does
 
-- **Start:** create a tenant (admin and user keys are generated locally), request access to an existing tenant (shows your join request and your key fingerprint), or open an identity stored on this machine.
+- **Start:** create a tenant with a name of your choice (the tenant ID is generated at random like in Haven, so it never collides on a shared server; admin and user keys are generated locally), request access to an existing tenant (shows your join request and your key fingerprint), or open an identity stored on this machine.
+- **Tenant:** the admin renames the tenant; the name is stored encrypted in the admin-signed directory, and members see it after their next sync.
 - **Server & sync:** publish the tenant to a MindooDB server, or connect a joined tenant. The MindooDB demo server that Haven offers (`https://demo-server1.mindoodb.com`, data is deleted periodically) is preselected, so you can start with one click; any other server URL works too. Sync runs in the background every 5 seconds; "Sync now" syncs right away. The activity list and the progress bar in the title bar come from `session.syncProgress()`.
 - **Join requests (admin):** paste a request, check who asks (name, device label, key fingerprints, whether the person or device is already in the directory), approve, and send the response back.
 - **Documents:** a live list per database (`liveQuery`, follows local changes and sync), filter or full-text search, a JSON editor to create, change and delete documents (changes are merged at the version you edited), attachments (upload, download, remove) and the revision history.

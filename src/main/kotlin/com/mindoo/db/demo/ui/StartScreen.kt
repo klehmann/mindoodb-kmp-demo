@@ -40,6 +40,8 @@ import com.mindoo.db.demo.PendingJoin
 import com.mindoo.db.demo.Profile
 import com.mindoo.db.demo.signingFingerprintOf
 import kotlinx.serialization.json.jsonPrimitive
+import java.text.SimpleDateFormat
+import java.util.Date
 
 /** First screen: open a saved identity, create a tenant, or join one. */
 @Composable
@@ -86,8 +88,9 @@ private fun SavedProfiles(state: AppState, modifier: Modifier) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Icon(if (profile.isAdmin) Icons.Outlined.AdminPanelSettings else Icons.Outlined.Person, null)
                     Column(Modifier.weight(1f)) {
-                        Text(profile.tenantId, fontWeight = FontWeight.SemiBold)
+                        Text(profile.displayName, fontWeight = FontWeight.SemiBold)
                         Text(profile.userId, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(profile.tenantId, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     TextButton(onClick = { selected = profile; password = "" }) { Text(if (isSelected) "Selected" else "Select") }
                 }
@@ -97,7 +100,7 @@ private fun SavedProfiles(state: AppState, modifier: Modifier) {
                         onClick = { state.openProfile(profile, password) },
                         enabled = password.isNotEmpty() && state.sidecar != null,
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Open ${profile.tenantId}") }
+                    ) { Text("Open ${profile.displayName}") }
                 }
                 HorizontalDivider()
             }
@@ -107,7 +110,7 @@ private fun SavedProfiles(state: AppState, modifier: Modifier) {
 
 @Composable
 private fun CreateTenantForm(state: AppState) {
-    var tenantId by remember { mutableStateOf("") }
+    var tenantLabel by remember { mutableStateOf("Tenant " + SimpleDateFormat("yyyy-MM-dd HH:mm").format(Date())) }
     var adminName by remember { mutableStateOf("cn=admin/o=") }
     var adminPassword by remember { mutableStateOf("") }
     var userId by remember { mutableStateOf("cn=") }
@@ -118,7 +121,11 @@ private fun CreateTenantForm(state: AppState) {
         Modifier.fillMaxWidth(),
         subtitle = "Generates the admin and user keys locally. Nothing leaves this machine until you publish.",
     ) {
-        Field("Tenant ID", tenantId, { tenantId = it.lowercase() }, placeholder = "acme (lowercase letters, digits, - and _)")
+        Field("Tenant name", tenantLabel, { tenantLabel = it }, placeholder = "e.g. Acme Corp")
+        Text(
+            "The tenant ID is generated at random (like Haven does), so it never collides with other tenants on a server. The name can be changed later.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Field("Admin name", adminName, { adminName = it }, Modifier.weight(1f))
             Field("Admin password", adminPassword, { adminPassword = it }, Modifier.weight(1f), password = true)
@@ -133,8 +140,8 @@ private fun CreateTenantForm(state: AppState) {
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Button(
-            onClick = { state.createTenant(tenantId.trim(), adminName.trim(), adminPassword, userId.trim(), password, splitList(databases)) },
-            enabled = state.sidecar != null && tenantId.isNotBlank() && adminPassword.isNotEmpty() && password.isNotEmpty(),
+            onClick = { state.createTenant(tenantLabel.trim(), adminName.trim(), adminPassword, userId.trim(), password, splitList(databases)) },
+            enabled = state.sidecar != null && tenantLabel.isNotBlank() && adminPassword.isNotEmpty() && password.isNotEmpty(),
         ) {
             Icon(Icons.Outlined.Domain, null)
             Spacer(Modifier.width(8.dp))

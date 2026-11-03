@@ -15,7 +15,11 @@ data class Profile(
     /** True when this profile created the tenant, so the bundle holds the tenant admin. */
     val isAdmin: Boolean = false,
     val serverUrl: String? = null,
-)
+    /** The tenant's human-readable name (the ID is generated). */
+    val tenantLabel: String? = null,
+) {
+    val displayName: String get() = tenantLabel ?: tenantId
+}
 
 /** A join that waits for the admin's response: the identity is password-locked JSON. */
 @Serializable
