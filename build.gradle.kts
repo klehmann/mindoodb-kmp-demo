@@ -41,6 +41,7 @@ tasks.test {
     // The walkthrough test needs a MindooDB server; it is skipped without one.
     environment("MINDOODB_TEST_SERVER_URL", System.getenv("MINDOODB_TEST_SERVER_URL") ?: "")
     systemProperty("demo.screenshots", layout.buildDirectory.dir("screenshots").get().asFile.absolutePath)
+    systemProperty("demo.density", System.getProperty("demo.density") ?: "1")
 }
 
 compose.desktop {

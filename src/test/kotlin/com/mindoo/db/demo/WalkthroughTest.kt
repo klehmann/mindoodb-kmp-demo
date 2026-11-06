@@ -25,6 +25,9 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
 import javax.imageio.ImageIO
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import kotlin.test.Test
 import kotlin.time.Duration.Companion.minutes
 import kotlin.test.assertEquals
@@ -55,9 +58,17 @@ class WalkthroughTest {
         admin.startSidecar()
         user.startSidecar()
         try {
-            runDesktopComposeUiTest(width = 1320, height = 860, testTimeout = 5.minutes) {
+            // -Ddemo.density=2 renders the screenshots at twice the resolution (blog, README)
+            val density = (System.getProperty("demo.density") ?: "1").toFloat()
+            runDesktopComposeUiTest(
+                width = (1320 * density).toInt(), height = (860 * density).toInt(), testTimeout = 5.minutes,
+            ) {
                 var active by mutableStateOf(admin)
-                setContent { DemoTheme(dark = false) { App(active, active.config.dataRoot) } }
+                setContent {
+                    CompositionLocalProvider(LocalDensity provides Density(density)) {
+                        DemoTheme(dark = false) { App(active, active.config.dataRoot) }
+                    }
+                }
                 waitFor("sidecars") { admin.sidecar != null && user.sidecar != null }
 
                 // --- Admin: create the tenant ---
@@ -226,6 +237,7 @@ class WalkthroughTest {
     }
 
     private fun ComposeUiTest.shot(name: String) {
+        states.forEach { it.notice = null }   // no snackbar over the screenshot
         waitForIdle()
         val image = onRoot().captureToImage().toAwtImage()
         ImageIO.write(image, "png", File(shots, "$name.png"))

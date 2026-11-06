@@ -93,8 +93,5 @@ fun App(state: AppState, dataRoot: Path) {
             }
             Snackbar(Modifier.align(Alignment.BottomCenter).padding(24.dp)) { Text(message) }
         }
-        Column(Modifier.align(Alignment.BottomStart).padding(8.dp)) {
-            Text(dataRoot.toString(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outlineVariant)
-        }
     }
 }
