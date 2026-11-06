@@ -44,6 +44,14 @@ fun main(args: Array<String>) {
     val title = opts["title"] ?: "MindooDB Kotlin Demo"
     val state = AppState(config)
     state.startSidecar()
+    // Quit from the macOS app menu (Cmd+Q) skips onCloseRequest: close the session
+    // and stop the sidecar there too (the client's shutdown hook is the fallback).
+    if (java.awt.Desktop.isDesktopSupported() && java.awt.Desktop.getDesktop().isSupported(java.awt.Desktop.Action.APP_QUIT_HANDLER)) {
+        java.awt.Desktop.getDesktop().setQuitHandler { _, response ->
+            state.shutdown()
+            response.performQuit()
+        }
+    }
     application {
         Window(
             onCloseRequest = { state.shutdown(); exitApplication() },
