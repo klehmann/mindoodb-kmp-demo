@@ -84,7 +84,11 @@ fun ServerPanel(state: AppState, tenant: OpenTenant, sync: SyncStatus) {
             "Sync",
             Modifier.fillMaxWidth(),
             subtitle = if (profile.serverUrl != null) {
-                "With ${profile.serverUrl}. Runs in the background every 5 seconds: directory, userdirectory and every open database, documents and attachments."
+                if (profile.backgroundSync) {
+                    "With ${profile.serverUrl}. Runs in the background every 5 seconds: directory, userdirectory and every open database, documents and attachments. Turn it off in the title bar to test concurrent edits."
+                } else {
+                    "With ${profile.serverUrl}. Background sync is off (title bar): changes stay on this machine until you sync now."
+                }
             } else "Publish the tenant or connect to a server first.",
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

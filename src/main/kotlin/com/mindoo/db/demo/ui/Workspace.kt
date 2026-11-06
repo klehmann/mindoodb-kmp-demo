@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AdminPanelSettings
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mindoo.db.bridge.DatabaseMode
@@ -111,11 +114,25 @@ private fun TopBar(state: AppState, tenant: OpenTenant, sync: SyncStatus) {
                 when {
                     server == null -> "Local only"
                     running.isNotEmpty() -> "Syncing ${running.first().dbId}…"
+                    !tenant.profile.backgroundSync -> "Manual sync with $server"
                     else -> "Synced with $server"
                 },
                 style = MaterialTheme.typography.bodySmall,
             )
             if (server != null) {
+                Row(
+                    Modifier.toggleable(
+                        value = tenant.profile.backgroundSync,
+                        enabled = state.busy == null,
+                        role = Role.Checkbox,
+                        onValueChange = { state.setBackgroundSync(it) },
+                    ).padding(end = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(tenant.profile.backgroundSync, onCheckedChange = null, enabled = state.busy == null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Background sync", style = MaterialTheme.typography.bodySmall)
+                }
                 TextButton(onClick = { state.run("Syncing…") { tenant.session.refresh(); state.refreshTenantLabel() } }) {
                     Icon(Icons.Outlined.Sync, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
