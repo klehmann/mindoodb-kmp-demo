@@ -94,6 +94,9 @@ fun DocumentBrowser(state: AppState, tenant: OpenTenant, dbId: String) {
     var rows by remember(dbId) { mutableStateOf<List<QueryRow>>(emptyList()) }
     var total by remember(dbId) { mutableIntStateOf(0) }
     var selection by remember(dbId) { mutableStateOf<Selection>(Selection.None) }
+    // Counts the live query's results: the open document re-checks its heads on each.
+    // (`_lastModified` alone is not enough: after a merge it can keep a value seen before.)
+    var listVersion by remember(dbId) { mutableIntStateOf(0) }
 
     // Live list: re-emits after every local change and every sync.
     LaunchedEffect(db, fulltext, if (fulltext) search else "") {
@@ -110,6 +113,7 @@ fun DocumentBrowser(state: AppState, tenant: OpenTenant, dbId: String) {
             db.liveQuery(query).collect { result ->
                 rows = result.rows
                 total = result.total
+                listVersion++
             }
         } catch (t: CancellationException) {
             throw t
@@ -163,8 +167,7 @@ fun DocumentBrowser(state: AppState, tenant: OpenTenant, dbId: String) {
                 Selection.None -> Placeholder()
                 Selection.New -> NewDocumentEditor(state, db) { selection = Selection.Existing(it) }
                 is Selection.Existing -> {
-                    val lastModified = rows.firstOrNull { it.docId == s.docId }?.lastModified
-                    DocumentDetail(state, db, s.docId, lastModified) { selection = Selection.None }
+                    DocumentDetail(state, db, s.docId, listVersion) { selection = Selection.None }
                 }
             }
         }
@@ -253,28 +256,46 @@ private fun NewDocumentEditor(state: AppState, db: Database, onCreated: (String)
 }
 
 @Composable
-private fun DocumentDetail(state: AppState, db: Database, docId: String, lastModified: Long?, onDeleted: () -> Unit) {
-    var doc by remember(docId) { mutableStateOf<MindooDocument?>(null) }
+private fun DocumentDetail(state: AppState, db: Database, docId: String, listVersion: Int, onDeleted: () -> Unit) {
+    // The version the editor started from; saving diffs the editor against it.
+    var base by remember(docId) { mutableStateOf<MindooDocument?>(null) }
     var text by remember(docId) { mutableStateOf("") }
-    var dirty by remember(docId) { mutableStateOf(false) }
+    // A newer version that arrived while the editor had unsaved edits.
+    var incoming by remember(docId) { mutableStateOf<MindooDocument?>(null) }
     var reloadToken by remember(docId) { mutableIntStateOf(0) }
+    var forceReload by remember(docId) { mutableStateOf(false) }
     var tab by remember(docId) { mutableIntStateOf(0) }
 
-    // Reload when the document changed (locally or through sync) and the editor is clean.
-    LaunchedEffect(docId, lastModified, reloadToken) {
-        if (dirty && reloadToken == 0) return@LaunchedEffect
+    // Follow the document (local saves, other windows, sync): a clean editor
+    // shows the new version right away; one with unsaved edits keeps them and
+    // says that the document moved on.
+    LaunchedEffect(docId, listVersion, reloadToken) {
         try {
-            val loaded = db.documents.get(docId)
-            doc = loaded
-            text = editableJson(loaded.data)
-            dirty = false
+            val latest = db.documents.get(docId, withFieldTypes = true)
+            val shown = base
+            val force = forceReload
+            forceReload = false
+            when {
+                !force && shown != null && latest.heads.toSet() == shown.heads.toSet() -> Unit
+                shown == null || force || text == editableJson(shown.data) -> {
+                    base = latest
+                    text = editableJson(latest.data)
+                    incoming = null
+                }
+                latest.heads.toSet() != shown.heads.toSet() -> incoming = latest
+            }
         } catch (t: CancellationException) {
             throw t
         } catch (t: Throwable) {
             state.error = t.message
         }
     }
-    val current = doc ?: return
+    val current = base ?: return
+    val dirty = text != editableJson(current.data)
+    fun reload() {
+        forceReload = true
+        reloadToken++
+    }
     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Column(Modifier.weight(1f)) {
@@ -297,31 +318,38 @@ private fun DocumentDetail(state: AppState, db: Database, docId: String, lastMod
         when (tab) {
             0 -> {
                 val (parsed, error) = parseObject(text)
-                JsonEditor(text, { text = it; dirty = true }, error, Modifier.weight(1f))
+                if (dirty && incoming != null) {
+                    Text(
+                        "Changed elsewhere while you edit (another window or a sync). Your edits are kept: " +
+                            "Save merges them into the new version, Discard shows it.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        modifier = Modifier.fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.tertiaryContainer, RoundedCornerShape(8.dp))
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                    )
+                }
+                JsonEditor(text, { text = it }, error, Modifier.weight(1f))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = {
-                        val next = parsed!!
-                        val before = current.data.filterKeys { !it.startsWith("_") }
+                        val edited = parsed!!
                         state.run("Saving…") {
-                            // One change against the version shown; concurrent edits of other fields survive.
-                            val result = db.documents.update(docId, baseHeads = current.heads) {
-                                next.forEach { (k, v) -> if (before[k] != v) set(k, v) }
-                                before.keys.filter { it !in next }.forEach { unset(it) }
-                            }
-                            if (result.conflictExpected == true) state.notice = "Merged with changes made in the meantime"
-                            dirty = false
-                            reloadToken++
+                            // Only what the user changed, as patches against the version shown:
+                            // concurrent edits, even in the same text, merge.
+                            val result = db.documents.applyEdit(current, edited)
+                            if (result?.conflictExpected == true) state.notice = "Merged with changes made in the meantime"
+                            reload()
                         }
                     }, enabled = parsed != null && dirty) {
                         Icon(Icons.Outlined.Save, null, Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                    Text("Save")
+                        Text("Save")
                     }
-                    OutlinedButton(onClick = { dirty = false; reloadToken++ }, enabled = dirty) { Text("Discard") }
+                    OutlinedButton(onClick = { reload() }, enabled = dirty) { Text("Discard") }
                 }
             }
             1 -> Attachments(state, db, current) { reloadToken++ }
-            2 -> History(state, db, docId, lastModified)
+            2 -> History(state, db, docId, current.heads)
         }
     }
 }
@@ -375,10 +403,10 @@ private fun AttachmentRow(state: AppState, db: Database, doc: MindooDocument, a:
 }
 
 @Composable
-private fun History(state: AppState, db: Database, docId: String, lastModified: Long?) {
+private fun History(state: AppState, db: Database, docId: String, heads: List<String>) {
     var entries by remember(docId) { mutableStateOf<List<HistoryEntry>>(emptyList()) }
     var shown by remember(docId) { mutableStateOf<HistoryEntry?>(null) }
-    LaunchedEffect(docId, lastModified) {
+    LaunchedEffect(docId, heads) {
         try {
             entries = db.documents.history(docId).reversed()
         } catch (t: CancellationException) {

@@ -16,9 +16,9 @@ It is a demo, and a test of the Kotlin API: every screen uses only the public cl
 
 - **Start:** create a tenant with a name of your choice (the tenant ID is generated at random like in Haven, so it never collides on a shared server; admin and user keys are generated locally), request access to an existing tenant (shows your join request and your key fingerprint), or open an identity stored on this machine.
 - **Tenant:** the admin renames the tenant; the name is stored encrypted in the admin-signed directory, and members see it after their next sync.
-- **Server & sync:** publish the tenant to a MindooDB server, or connect a joined tenant. The MindooDB demo server that Haven offers (`https://demo-server1.mindoodb.com`, data is deleted periodically) is preselected, so you can start with one click; any other server URL works too. Sync runs in the background every 5 seconds; "Sync now" syncs right away. The activity list and the progress bar in the title bar come from `session.syncProgress()`.
+- **Server & sync:** publish the tenant to a MindooDB server, or connect a joined tenant. The MindooDB demo server that Haven offers (`https://demo-server1.mindoodb.com`, data is deleted periodically) is preselected, so you can start with one click; any other server URL works too. Sync runs in the background every 5 seconds; "Sync now" syncs right away. The "Background sync" checkbox in the title bar turns it off (remembered per identity), so changes stay on this machine until "Sync now": that makes concurrent edits in two windows easy to try. The activity list and the progress bar in the title bar come from `session.syncProgress()`.
 - **Join requests (admin):** paste a request, check who asks (name, device label, key fingerprints, whether the person or device is already in the directory), approve, and send the response back.
-- **Documents:** a live list per database (`liveQuery`, follows local changes and sync), filter or full-text search, a JSON editor to create, change and delete documents (changes are merged at the version you edited), attachments (upload, download, remove) and the revision history.
+- **Documents:** a live list per database (`liveQuery`, follows local changes and sync), filter or full-text search, a JSON editor to create, change and delete documents. Saving writes only what you changed, against the version you started from (`documents.applyEdit`): edited text becomes character splices, nested objects and lists are patched key by key and element by element, atomic strings and counters keep their type. So two people who edit the same document, even the same text, both keep their edits. An open document follows changes from sync or another window; with unsaved edits the editor keeps them and says that a newer version arrived, and Save merges them into it, attachments (upload, download, remove) and the revision history.
 
 ## Run it
 
@@ -76,7 +76,9 @@ Anna creates a tenant and publishes it, to the demo server with one click or to 
 MINDOODB_TEST_SERVER_URL=http://127.0.0.1:1761 ./gradlew test
 ```
 
-Without `MINDOODB_TEST_SERVER_URL` the test is skipped.
+`ConcurrentEditTest` puts two windows side by side with background sync off: both edit the same text and save, sync by hand, and the open editors show the merged result; then one window keeps unsaved edits while a newer version arrives and merges them on Save (screenshots `build/screenshots/concurrent-*`).
+
+Without `MINDOODB_TEST_SERVER_URL` the tests are skipped.
 
 ## Notes
 

@@ -17,6 +17,8 @@ data class Profile(
     val serverUrl: String? = null,
     /** The tenant's human-readable name (the ID is generated). */
     val tenantLabel: String? = null,
+    /** Off: changes stay on this machine until "Sync now" (handy to test concurrent edits). */
+    val backgroundSync: Boolean = true,
 ) {
     val displayName: String get() = tenantLabel ?: tenantId
 }

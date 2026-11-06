@@ -120,8 +120,16 @@ class AppState(val config: AppConfig) {
 
     private suspend fun openSession(profile: Profile, password: String) {
         val session = MindooDBBridge.openSession(endpoint, profile.tenantId, profile.userId, password, profile.databases)
+        if (!profile.backgroundSync) session.setBackgroundSync(false)
         open = OpenTenant(profile, session)
         refreshTenantLabel()
+    }
+
+    /** Turn the background sync on or off; remembered for the next start. */
+    fun setBackgroundSync(enabled: Boolean) = run(if (enabled) "Turning on background sync…" else "Turning off background sync…") {
+        val session = open?.session ?: return@run
+        val now = session.setBackgroundSync(enabled)
+        updateProfile { it.copy(backgroundSync = now) }
     }
 
     /** Pick up a rename by the admin (after a sync, or right after opening). */
